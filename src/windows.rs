@@ -1,9 +1,10 @@
-use crate::{MkLink};
-use std::path::{Path};
-use std::os::windows::fs::{symlink_file, symlink_dir};
 use std::fs::hard_link;
 use std::io;
+use std::os::windows::fs::{symlink_dir, symlink_file};
+use std::path::{Path, PathBuf};
+
 use crate::error::Error;
+use crate::MkLink;
 
 enum LinkType {
     File,
@@ -52,7 +53,7 @@ impl LinkType {
 impl MkLink {
     fn check_own_constrains(&self) -> Result<(), Error> {
         if self.file && self.dir {
-            return Error::with_msg("can't specify both --file and --dir").err()
+            return Error::with_msg("can't specify both --file and --dir").err();
         }
         Ok(())
     }
@@ -61,8 +62,8 @@ impl MkLink {
         LinkType::new(self.hard, is_file)
     }
     
-    fn err<'a>(&'a self, msg: &'a str, path: &'a Path) -> Error<'a> {
-        Error::with_msg_and_path(msg, path)
+    fn err<'a>(&'a self, msg: &'a str, path: &'a PathBuf) -> Error<'a> {
+        Error::with_msg_and_path(msg, path.as_path())
     }
     
     fn target_err<'a>(&'a self, msg: &'a str) -> Error<'a> {
@@ -82,7 +83,7 @@ impl MkLink {
                 } else {
                     Ok(self.get_link_type(self.file))
                 }
-            },
+            }
             Ok(metadata) => {
                 let is_file = metadata.is_file();
                 let is_dir = metadata.is_dir();
@@ -95,13 +96,13 @@ impl MkLink {
                 } else {
                     Ok(self.get_link_type(is_file))
                 }
-            },
+            }
         }
     }
     
     fn check_link(&self) -> Result<(), Error> {
         if self.link.exists() {
-            return self.link_err("link already exists").err()
+            return self.link_err("link already exists").err();
         }
         Ok(())
     }
@@ -112,7 +113,8 @@ impl MkLink {
         self.check_link()?;
         let target = self.target.as_path();
         let link = self.link.as_path();
-        link_type.creator()(target, link)?;
+        link_type.creator()(target, link)
+            .map_err(|e| Error::with_error(e, vec![target, link]))?;
         eprintln!("created a {}: \"{}\" -> \"{}\"", link_type.name(), link.display(), target.display());
         Ok(())
     }

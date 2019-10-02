@@ -2,8 +2,8 @@ use std::os::unix::process::CommandExt;
 use std::path::{Path};
 use std::process::Command;
 
-use crate::{MkLink};
-use crate::error::{Error};
+use crate::error::Error;
+use crate::MkLink;
 
 fn wsl_to_windows_path(path: &Path) -> Result<String, Error> {
     let program = "wslpath";
@@ -20,7 +20,7 @@ fn wsl_to_windows_path(path: &Path) -> Result<String, Error> {
 
 impl MkLink {
     pub fn run(&self) -> Result<(), Error> {
-        let program = "./target/debug/mklink.exe";
+        let program = "mklink.exe";
         let mut cmd = Command::new(program);
         if self.hard {
             cmd.arg("-h");

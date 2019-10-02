@@ -5,7 +5,7 @@ use std::fmt::{Display, Formatter, Write};
 #[derive(Debug)]
 pub struct Error<'a> {
     pub message: Option<&'a str>,
-    pub path: Option<&'a Path>,
+    pub paths: Vec<&'a Path>,
     pub program: Option<&'a str>,
     pub error: Option<io::Error>,
 }
@@ -30,7 +30,20 @@ impl<'a, T : Display> Display for DisplayOption<'a, T> {
 impl Display for Error<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         DisplayOption {name: "message", option: &self.message}.fmt(f)?;
-        DisplayOption {name: "path", option: &self.path.map(|it| it.display())}.fmt(f)?;
+        if self.paths.len() <= 1 {
+            DisplayOption {name: "path", option: &self.paths
+                .get(0)
+                .map(|it| it.display())
+            }.fmt(f)?;
+        } else {
+            DisplayOption {name: "paths", option: &Some(
+                format!("{:?}", self.paths
+                    .iter()
+                    .map(|it| it.display())
+                    .collect::<Vec<_>>()
+                )
+            )}.fmt(f)?;
+        }
         DisplayOption {name: "program", option: &self.program}.fmt(f)?;
         DisplayOption {name: "error", option: &self.error}.fmt(f)?;
         Ok(())
@@ -42,7 +55,7 @@ impl<'a> Error<'a> {
     pub fn with_msg(msg: &str) -> Error {
         Error {
             message: Some(msg),
-            path: None,
+            paths: Vec::new(),
             program: None,
             error: None,
         }
@@ -51,15 +64,34 @@ impl<'a> Error<'a> {
     pub fn with_msg_and_path<'b>(msg: &'b str, path: &'b Path) -> Error<'b> {
         Error {
             message: Some(msg),
-            path: Some(path),
+            paths: vec![path],
             program: None,
             error: None,
         }
     }
+    
+    pub fn with_msg_and_program<'b>(msg: &'b str, program: &'b str, paths: Vec<&'b Path>) -> Error<'b> {
+        Error {
+            message: Some(msg),
+            paths,
+            program: Some(program),
+            error: None,
+        }
+    }
+    
+    pub fn with_error(error: io::Error, paths: Vec<&Path>) -> Error {
+        Error {
+            message: None,
+            paths,
+            program: None,
+            error: Some(error),
+        }
+    }
+    
     pub fn for_program<'b>(program: &'b str) -> impl (Fn(io::Error) -> Error<'b>) + 'b {
         move |error| Error {
             message: None,
-            path: None,
+            paths: Vec::new(),
             program: Some(program),
             error: Some(error),
         }
@@ -67,16 +99,5 @@ impl<'a> Error<'a> {
     
     pub fn err<T>(self) -> Result<T, Error<'a>> {
         Err(self)
-    }
-}
-
-impl From<io::Error> for Error<'_> {
-    fn from(error: io::Error) -> Self {
-        Error {
-            message: None,
-            path: None,
-            program: None,
-            error: Some(error),
-        }
     }
 }
