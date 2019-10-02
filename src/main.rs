@@ -10,31 +10,65 @@ use structopt::StructOpt;
 struct MkLink {
     #[structopt(short, long)]
     hard: bool,
+    #[structopt(short, long)]
+    file: bool,
+    #[structopt(short, long)]
+    dir: bool,
     target: PathBuf,
     link: PathBuf,
 }
 
 #[derive(Debug)]
-struct Error {
+struct IOError {
     path: Option<PathBuf>,
     error: io::Error,
 }
 
-impl From<io::Error> for Error {
+impl From<io::Error> for IOError {
     fn from(error: io::Error) -> Self {
-        Error {
+        IOError {
             path: None,
             error,
         }
     }
 }
 
-impl Error {
-    fn for_cmd<'a>(program: &'a str) -> impl (Fn(io::Error) -> Error) + 'a {
-        move |error| Error {
+impl IOError {
+    fn for_cmd<'a>(program: &'a str) -> impl (Fn(io::Error) -> IOError) + 'a {
+        move |error| IOError {
             path: Some(PathBuf::from(program)),
             error,
         }
+    }
+}
+
+#[derive(Debug)]
+enum Error {
+    Message(String),
+    IO(IOError),
+}
+
+impl From<IOError> for Error {
+    fn from(error: IOError) -> Self {
+        Error::IO(error)
+    }
+}
+
+impl From<String> for Error {
+    fn from(msg: String) -> Self {
+        Error::Message(msg)
+    }
+}
+
+impl From<&str> for Error {
+    fn from(msg: &str) -> Self {
+        Error::Message(msg.into())
+    }
+}
+
+impl From<io::Error> for Error {
+    fn from(e: io::Error) -> Self {
+        IOError::from(e).into()
     }
 }
 
