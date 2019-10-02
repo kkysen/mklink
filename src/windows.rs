@@ -1,8 +1,9 @@
-use crate::{MkLink, Error};
+use crate::{MkLink};
 use std::path::{Path};
 use std::os::windows::fs::{symlink_file, symlink_dir};
 use std::fs::hard_link;
 use std::io;
+use crate::error::Error;
 
 enum LinkType {
     File,
@@ -37,12 +38,21 @@ impl LinkType {
             LinkType::Junction => |a, b| junction::create(a, b),
         }
     }
+    
+    fn name(&self) -> &'static str {
+        match self {
+            LinkType::File => "symbolic file link",
+            LinkType::Directory => "symbolic directory link",
+            LinkType::Hard => "hard link",
+            LinkType::Junction => "directory junction",
+        }
+    }
 }
 
 impl MkLink {
     fn check_own_constrains(&self) -> Result<(), Error> {
         if self.file && self.dir {
-            return Err("can't specify both --file and --dir".into())
+            return Error::with_msg("can't specify both --file and --dir").err()
         }
         Ok(())
     }
@@ -51,11 +61,24 @@ impl MkLink {
         LinkType::new(self.hard, is_file)
     }
     
+    fn err<'a>(&'a self, msg: &'a str, path: &'a Path) -> Error<'a> {
+        Error::with_msg_and_path(msg, path)
+    }
+    
+    fn target_err<'a>(&'a self, msg: &'a str) -> Error<'a> {
+        self.err(msg, &self.target)
+    }
+    
+    fn link_err<'a>(&'a self, msg: &'a str) -> Error<'a> {
+        self.err(msg, &self.link)
+    }
+    
     fn check_target_and_get_link_type(&self) -> Result<LinkType, Error> {
+        let err = |msg| self.target_err(msg);
         match self.target.metadata() {
             Err(_) => {
                 if !self.file && !self.dir {
-                    Err("can't infer target file type since target doesn't exist".into())
+                    err("can't infer target file type since target doesn't exist").err()
                 } else {
                     Ok(self.get_link_type(self.file))
                 }
@@ -63,12 +86,12 @@ impl MkLink {
             Ok(metadata) => {
                 let is_file = metadata.is_file();
                 let is_dir = metadata.is_dir();
-                if self.file && is_file {
-                    Err("specified --file but target is not a file".into())
-                } else if self.dir && is_dir {
-                    Err("specified --dir but target is not a directory".into())
+                if self.file && !is_file {
+                    err("specified --file but target is not a file").err()
+                } else if self.dir && !is_dir {
+                    err("specified --dir but target is not a directory").err()
                 } else if !(is_file || is_dir) {
-                    Err("only works on files and directories".into())
+                    err("only works on files and directories").err()
                 } else {
                     Ok(self.get_link_type(is_file))
                 }
@@ -78,7 +101,7 @@ impl MkLink {
     
     fn check_link(&self) -> Result<(), Error> {
         if self.link.exists() {
-            return Err("link already exists".into())
+            return self.link_err("link already exists").err()
         }
         Ok(())
     }
@@ -90,6 +113,7 @@ impl MkLink {
         let target = self.target.as_path();
         let link = self.link.as_path();
         link_type.creator()(target, link)?;
+        eprintln!("created a {}: \"{}\" -> \"{}\"", link_type.name(), link.display(), target.display());
         Ok(())
     }
 }
