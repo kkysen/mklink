@@ -3,6 +3,7 @@ name = "mklink"
 version = "0.1.0"
 authors = ["Khyber Sen <kkysen@gmail.com>"]
 edition = "2018"
+description = "A mklink binary (not through cmd.exe) for Windows and a Linux version for WSL to create Windows-WSL compatible symlinks."
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

@@ -38,7 +38,7 @@ that converts WSL paths to Windows paths and then `exec`s `mklink.exe`.
 
 ## Installation
 You need to clone the repo 
-and then run `cargo install --path [BUILD PATH]` 
+and then run `cargo install --path .` 
 both from Windows (PowerShell) and from WSL. 
 To do this, you need to have Rust installed both on Windows and WSL.
 You could also try cross-compiling, but I think this way is easier.
