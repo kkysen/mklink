@@ -1,6 +1,6 @@
 use std::{io, fmt};
 use std::path::Path;
-use std::fmt::{Display, Formatter, Write};
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug)]
 pub struct Error<'a> {

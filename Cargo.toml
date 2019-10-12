@@ -9,9 +9,11 @@ description = "A mklink binary (not through cmd.exe) for Windows and a Linux ver
 
 [dependencies]
 clap = "2.33.0"
-structopt = { version = "0.3.2", features = [ "paw" ] }
+structopt = {version = "0.3.2", features = ["paw"]}
 paw = "1.0.0"
 junction = "0.1.2"
+serde = {version = "1.0.101", features = ["derive"]}
+bincode = "1.2.0"
 
 [profile.release]
 lto = true
