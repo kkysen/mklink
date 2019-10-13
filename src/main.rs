@@ -9,7 +9,7 @@ use std::process::exit;
 use structopt::StructOpt;
 
 use serde::{Serialize, Deserialize};
-use mklink::{MkLink, mklink};
+use mklink::{MkLink, mklink as mklink_};
 use mklink::link_error::{PreLinkError, DuringLinkError, LinkError};
 use mklink::link_type::LinkHardness::{Hard, Soft};
 use mklink::link_type::LinkFileType::{File, Directory};
@@ -90,7 +90,7 @@ impl MkLinkArgs {
                 false => None,
             },
         };
-        let link = mklink(self.target.as_path(), self.link.as_path());
+        let link = mklink_(self.target.as_path(), self.link.as_path());
         let link = link.with_hardness(hardness);
         let link = match self.raw {
             true => Ok(link.with_type_unchecked(file_type.expect("--raw requires a file type"))),
@@ -99,11 +99,10 @@ impl MkLinkArgs {
         link.map_err(|it| it.map(|it| AnyLinkError::Pre(it)))
     }
     
-    fn run(&self) -> Result<MkLink, LinkError<AnyLinkError>> {
+    fn run<F: FnOnce(&MkLink)>(&self, after: F) -> Result<(), LinkError<AnyLinkError>> {
         let mk_link = self.as_mk_link()?;
-        mk_link.create()
-            .map_err(|it| it.map(|it| AnyLinkError::During(it)))?;
-        Ok(mk_link)
+        mk_link.create_and(after)
+            .map_err(|it| it.map(|it| AnyLinkError::During(it)))
     }
     
     fn print(&self, mk_link: &MkLink) {
@@ -115,11 +114,8 @@ impl MkLinkArgs {
     }
     
     fn handled_run(&self) -> ! {
-        let exit_code = match self.run() {
-            Ok(mk_link) => {
-                self.print(&mk_link);
-                0
-            }
+        let exit_code = match self.run(|mk_link| self.print(mk_link)) {
+            Ok(_) => 0,
             Err(e) => {
                 Error(e).print(self.raw);
                 1

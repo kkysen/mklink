@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::link_type::{LinkHardness, LinkType, LinkFileType};
 use crate::link_error::{LinkError, PreLinkError, DuringLinkError};
@@ -95,12 +95,42 @@ pub struct MkLink<'a> {
 }
 
 impl<'a> MkLink<'a> {
-    pub fn create(&self) -> Result<(), LinkError<DuringLinkError>> {
+    fn resolve_link(&self) -> Result<PathBuf, LinkError<DuringLinkError>> {
         let link = self.link.link;
-        if link.exists() {
-            return Err(LinkError::link(DuringLinkError::LinkAlreadyExists));
+        let e = Err(LinkError::link(DuringLinkError::LinkAlreadyExists));
+        match link.metadata() {
+            Ok(metadata) => match metadata.is_dir() {
+                true => match self.link.target.file_name() {
+                    Some(file_name) => {
+                        let link = link.join(file_name);
+                        match link.exists() {
+                            true => e,
+                            false => Ok(link),
+                        }
+                    },
+                    None => e,
+                },
+                false => e,
+            },
+            Err(_) => Ok(link.to_path_buf()),
         }
-        self.create_impl()?;
+    }
+    
+    pub fn create_and<F: FnOnce(&MkLink)>(&self, after: F) -> Result<(), LinkError<DuringLinkError>> {
+        let link = self.resolve_link()?;
+        let mk_link = MkLink {
+            link: Link {
+                target: self.link.target,
+                link: link.as_path(),
+            },
+            link_type: self.link_type,
+        };
+        mk_link.create_impl()?;
+        after(&mk_link);
         Ok(())
+    }
+    
+    pub fn create(&self) -> Result<(), LinkError<DuringLinkError>> {
+        self.create_and(|_| {})
     }
 }
